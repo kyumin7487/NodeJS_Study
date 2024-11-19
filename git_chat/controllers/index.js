@@ -26,7 +26,7 @@ exports.createRoom = async (req, res, next) => {
     });
     const io = req.app.get('io');
     io.of('/room').emit('newRoom', newRoom);
-    if (req.body.password) { 
+    if (req.body.password) { // 비밀번호가 있는 방이면
       res.redirect(`/room/${newRoom._id}?password=${req.body.password}`);
     } else {
       res.redirect(`/room/${newRoom._id}`);
@@ -52,10 +52,11 @@ exports.enterRoom = async (req, res, next) => {
     if (room.max <= rooms.get(req.params.id)?.size) {
       return res.redirect('/?error=허용 인원이 초과하였습니다.');
     }
+    const chats = await Chat.find({ room: room._id }).sort('createdAt');
     return res.render('chat', {
       room,
       title: room.title,
-      chats: [],
+      chats,
       user: req.session.color,
     });
   } catch (error) {
@@ -73,3 +74,18 @@ exports.removeRoom = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.sendChat = async (req, res, next) => {
+  try {
+    const chat = await Chat.create({
+      room: req.params.id,
+      user: req.session.color,
+      chat: req.body.chat,
+    });
+    req.app.get('io').of('/chat').to(req.params.id).emit('chat', chat);
+    res.send('ok');
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+}
